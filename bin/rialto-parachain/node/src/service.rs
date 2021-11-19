@@ -212,7 +212,12 @@ where
 	sc_client_api::StateBackendFor<TFullBackend<Block>, Block>: sp_api::StateBackend<BlakeTwo256>,
 	Executor: NativeExecutionDispatch + 'static,
 	RB: Fn(
+			sc_rpc_api::DenyUnsafe,
 			Arc<TFullClient<Block, RuntimeApi, NativeElseWasmExecutor<Executor>>>,
+			Arc<sc_transaction_pool::FullPool<
+				Block,
+				TFullClient<Block, RuntimeApi, NativeElseWasmExecutor<Executor>>,
+			>>,
 		) -> jsonrpc_core::IoHandler<sc_rpc::Metadata>
 		+ Send
 		+ 'static,
@@ -288,7 +293,8 @@ where
 		})?;
 
 	let rpc_client = client.clone();
-	let rpc_extensions_builder = Box::new(move |_, _| Ok(rpc_ext_builder(rpc_client.clone())));
+	let rpc_transaction_pool = transaction_pool.clone();
+	let rpc_extensions_builder = Box::new(move |deny_unsafe, _| Ok(rpc_ext_builder(deny_unsafe, rpc_client.clone(), rpc_transaction_pool.clone())));
 
 	sc_service::spawn_tasks(sc_service::SpawnTasksParams {
 		rpc_extensions_builder,
@@ -412,7 +418,21 @@ pub async fn start_node(
 		parachain_config,
 		polkadot_config,
 		id,
-		|_| Default::default(),
+		|deny_unsafe, client, pool| {
+			use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApi};
+			use substrate_frame_rpc_system::{FullSystem, SystemApi};
+
+			let mut io = jsonrpc_core::IoHandler::default();
+			io.extend_with(SystemApi::to_delegate(FullSystem::new(
+				client.clone(),
+				pool,
+				deny_unsafe,
+			)));
+			io.extend_with(TransactionPaymentApi::to_delegate(TransactionPayment::new(
+				client,
+			)));
+			io
+		},
 		parachain_build_import_queue,
 		|client,
 		 prometheus_registry,

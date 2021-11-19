@@ -17,6 +17,7 @@
 //! Rialto parachain specification for CLI.
 
 use crate::cli::{
+	bridge,
 	encode_call::{Call, CliEncodeCall},
 	encode_message, CliChain,
 };
@@ -41,9 +42,23 @@ impl CliEncodeCall for RialtoParachain {
 					value: amount.0,
 				},
 			),
-			Call::BridgeSendMessage { .. } => {
-				anyhow::bail!("Bridge messages are not (yet) supported here",)
-			},
+			Call::BridgeSendMessage { lane, payload, fee, bridge_instance_index } =>
+				match *bridge_instance_index {
+					bridge::RIALTO_PARACHAIN_TO_MILLAU_INDEX => {
+						let payload = Decode::decode(&mut &*payload.0)?;
+						rialto_parachain_runtime::Call::BridgeMillauMessages(
+							rialto_parachain_runtime::MessagesCall::send_message {
+								lane_id: lane.0,
+								payload,
+								delivery_and_dispatch_fee: fee.0,
+							},
+						)
+					},
+					_ => anyhow::bail!(
+						"Unsupported target bridge pallet with instance index: {}",
+						bridge_instance_index
+					),
+				},
 		})
 	}
 

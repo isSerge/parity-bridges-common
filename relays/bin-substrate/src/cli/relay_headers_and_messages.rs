@@ -57,6 +57,7 @@ pub enum RelayHeadersAndMessages {
 	MillauRialto(MillauRialtoHeadersAndMessages),
 	RococoWococo(RococoWococoHeadersAndMessages),
 	KusamaPolkadot(KusamaPolkadotHeadersAndMessages),
+	MillauRialtoParachain(MillauRialtoParachainHeadersAndMessages),
 }
 
 /// Parameters that have the same names across all bridges.
@@ -312,6 +313,57 @@ macro_rules! select_bridge {
 
 				$generic
 			},
+			RelayHeadersAndMessages::MillauRialtoParachain(_) => {
+				type Params = MillauRialtoParachainHeadersAndMessages;
+
+				type Left = relay_millau_client::Millau;
+				type Right = relay_rialto_parachain_client::RialtoParachain;
+
+				type LeftToRightFinality =
+					crate::chains::millau_headers_to_rialto_parachain::MillauFinalityToRialtoParachain;
+				type RightToLeftFinality =
+					crate::chains::rialto_parachains_to_millau::RialtoParachainsToMillau;
+
+				type LeftAccountIdConverter = bp_millau::AccountIdConverter;
+				type RightAccountIdConverter = bp_rialto_parachain::AccountIdConverter;
+
+				const MAX_MISSING_LEFT_HEADERS_AT_RIGHT: bp_millau::BlockNumber =
+					bp_millau::SESSION_LENGTH;
+				// parachains have no their own finality, they depend on relay chain finality
+				// => there are no authorities set changes on generic parachain
+				// => there are no mandatory parachain headers
+				const MAX_MISSING_RIGHT_HEADERS_AT_LEFT: bp_rialto_parachain::BlockNumber =
+					bp_rialto_parachain::BlockNumber::MAX;
+
+				use crate::chains::{
+					millau_messages_to_rialto_parachain::{
+						update_rialto_parachain_to_millau_conversion_rate as update_right_to_left_conversion_rate,
+						MillauMessagesToRialtoParachain as LeftToRightMessageLane,
+					},
+					rialto_parachain_messages_to_millau::{
+						update_millau_to_rialto_parachain_conversion_rate as update_left_to_right_conversion_rate,
+						RialtoParachainMessagesToMillau as RightToLeftMessageLane,
+					},
+				};
+
+				async fn left_create_account(
+					_left_client: Client<Left>,
+					_left_sign: <Left as TransactionSignScheme>::AccountKeyPair,
+					_account_id: AccountIdOf<Left>,
+				) -> anyhow::Result<()> {
+					unimplemented!("TODO")
+				}
+
+				async fn right_create_account(
+					_right_client: Client<Right>,
+					_right_sign: <Right as TransactionSignScheme>::AccountKeyPair,
+					_account_id: AccountIdOf<Right>,
+				) -> anyhow::Result<()> {
+					unimplemented!("TODO")
+				}
+
+				$generic
+			},
 		}
 	};
 }
@@ -323,10 +375,12 @@ declare_chain_options!(Rococo, rococo);
 declare_chain_options!(Wococo, wococo);
 declare_chain_options!(Kusama, kusama);
 declare_chain_options!(Polkadot, polkadot);
+declare_chain_options!(RialtoParachain, rialto_parachain);
 // All supported bridges.
 declare_bridge_options!(Millau, Rialto);
 declare_bridge_options!(Rococo, Wococo);
 declare_bridge_options!(Kusama, Polkadot);
+declare_bridge_options!(Millau, RialtoParachain);
 
 impl RelayHeadersAndMessages {
 	/// Run the command.
@@ -502,7 +556,7 @@ impl RelayHeadersAndMessages {
 				&left_client,
 				&right_to_left_transaction_params,
 			);
-			let left_to_right_on_demand_headers = OnDemandHeadersRelay::new::<LeftToRightFinality>(
+/*			let left_to_right_on_demand_headers = OnDemandHeadersRelay::new::<LeftToRightFinality>(
 				left_client.clone(),
 				right_client.clone(),
 				left_to_right_transaction_params,
@@ -515,7 +569,7 @@ impl RelayHeadersAndMessages {
 				right_to_left_transaction_params,
 				MAX_MISSING_RIGHT_HEADERS_AT_LEFT,
 				params.shared.only_mandatory_headers,
-			);
+			);*/
 
 			// Need 2x capacity since we consider both directions for each lane
 			let mut message_relays = Vec::with_capacity(lanes.len() * 2);
@@ -534,8 +588,11 @@ impl RelayHeadersAndMessages {
 						signer: right_sign.clone(),
 						mortality: right_transactions_mortality,
 					},
-					source_to_target_headers_relay: Some(left_to_right_on_demand_headers.clone()),
-					target_to_source_headers_relay: Some(right_to_left_on_demand_headers.clone()),
+// TODO: uncomment me
+//					source_to_target_headers_relay: Some(left_to_right_on_demand_headers.clone()),
+//					target_to_source_headers_relay: Some(right_to_left_on_demand_headers.clone()),
+source_to_target_headers_relay: None,
+target_to_source_headers_relay: None,
 					lane_id: lane,
 					metrics_params: metrics_params.clone().disable(),
 					standalone_metrics: Some(left_to_right_metrics.clone()),
@@ -556,8 +613,11 @@ impl RelayHeadersAndMessages {
 						signer: left_sign.clone(),
 						mortality: left_transactions_mortality,
 					},
-					source_to_target_headers_relay: Some(right_to_left_on_demand_headers.clone()),
-					target_to_source_headers_relay: Some(left_to_right_on_demand_headers.clone()),
+// TODO: uncomment me
+//					source_to_target_headers_relay: Some(right_to_left_on_demand_headers.clone()),
+//					target_to_source_headers_relay: Some(left_to_right_on_demand_headers.clone()),
+source_to_target_headers_relay: None,
+target_to_source_headers_relay: None,
 					lane_id: lane,
 					metrics_params: metrics_params.clone().disable(),
 					standalone_metrics: Some(right_to_left_metrics.clone()),

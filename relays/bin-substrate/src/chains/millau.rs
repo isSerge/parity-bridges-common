@@ -55,6 +55,16 @@ impl CliEncodeCall for Millau {
 							},
 						)
 					},
+					bridge::MILLAU_TO_RIALTO_PARACHAIN_INDEX => {
+						let payload = Decode::decode(&mut &*payload.0)?;
+						millau_runtime::Call::BridgeRialtoParachainMessages(
+							millau_runtime::MessagesCall::send_message {
+								lane_id: lane.0,
+								payload,
+								delivery_and_dispatch_fee: fee.cast(),
+							},
+						)
+					},
 					_ => anyhow::bail!(
 						"Unsupported target bridge pallet with instance index: {}",
 						bridge_instance_index

@@ -81,6 +81,10 @@ pub fn development_config(id: ParaId) -> ChainSpec {
 					get_account_id_from_seed::<sr25519::Public>("Bob"),
 					get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
 					get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+					pallet_bridge_messages::relayer_fund_account_id::<
+						bp_rialto_parachain::AccountId,
+						bp_rialto_parachain::AccountIdConverter,
+					>(),
 				],
 				id,
 			)
@@ -125,6 +129,10 @@ pub fn local_testnet_config(id: ParaId) -> ChainSpec {
 					get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
 					get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
 					get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
+					pallet_bridge_messages::relayer_fund_account_id::<
+						bp_rialto_parachain::AccountId,
+						bp_rialto_parachain::AccountIdConverter,
+					>(),
 				],
 				id,
 			)
@@ -159,6 +167,7 @@ fn testnet_genesis(
 		parachain_info: rialto_parachain_runtime::ParachainInfoConfig { parachain_id: id },
 		aura: rialto_parachain_runtime::AuraConfig { authorities: initial_authorities },
 		aura_ext: Default::default(),
+		bridge_millau_messages: Default::default(),
 		// parachain_system: Default::default(),
 	}
 }

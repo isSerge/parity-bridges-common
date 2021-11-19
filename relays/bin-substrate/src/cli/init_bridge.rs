@@ -48,6 +48,7 @@ pub enum InitBridgeName {
 	WococoToRococo,
 	KusamaToPolkadot,
 	PolkadotToKusama,
+	MillauToRialtoParachain,
 }
 
 macro_rules! select_bridge {
@@ -171,6 +172,24 @@ macro_rules! select_bridge {
 							init_data,
 						),
 					)
+				}
+
+				$generic
+			},
+			InitBridgeName::MillauToRialtoParachain => {
+				type Source = relay_millau_client::Millau;
+				type Target = relay_rialto_parachain_client::RialtoParachain;
+
+				fn encode_init_bridge(
+					init_data: InitializationData<<Source as ChainBase>::Header>,
+				) -> <Target as Chain>::Call {
+					let initialize_call = rialto_parachain_runtime::BridgeGrandpaCall::<
+						rialto_parachain_runtime::Runtime,
+						rialto_parachain_runtime::MillauGrandpaInstance,
+					>::initialize {
+						init_data,
+					};
+					rialto_parachain_runtime::SudoCall::sudo { call: Box::new(initialize_call.into()) }.into()
 				}
 
 				$generic

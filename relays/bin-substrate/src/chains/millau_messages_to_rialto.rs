@@ -74,7 +74,7 @@ pub(crate) async fn update_rialto_to_millau_conversion_rate(
 					&signer,
 					relay_substrate_client::TransactionEra::immortal(),
 					UnsignedTransaction::new(
-						millau_runtime::MessagesCall::update_pallet_parameter {
+						millau_runtime::MessagesCall::<millau_runtime::Runtime, millau_runtime::WithRialtoMessagesInstance>::update_pallet_parameter {
 							parameter: millau_runtime::rialto_messages::MillauToRialtoMessagesParameter::RialtoToMillauConversionRate(
 								sp_runtime::FixedU128::from_float(updated_rate),
 							),
